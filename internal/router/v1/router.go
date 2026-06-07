@@ -6,22 +6,24 @@ import (
 	"go-template/internal/middleware"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
-// NewRouter builds the v1 HTTP handler with all routes and middleware.
+// NewRouter builds the v1 chi router with all routes and middleware.
 func NewRouter(healthHandler *handler.HealthHandler) http.Handler {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.Handle("GET /swagger/", httpSwagger.Handler(
+	r.Use(chimw.RequestID)
+	r.Use(middleware.Logging)
+	r.Use(middleware.Recovery)
+
+	r.Handle("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("/swagger/doc.json"),
 	))
 
-	mux.HandleFunc("GET /health", healthHandler.Health)
+	r.Get("/health", healthHandler.Health)
 
-	var h http.Handler = mux
-	h = middleware.Logging(h)
-	h = middleware.Recovery(h)
-
-	return h
+	return r
 }
