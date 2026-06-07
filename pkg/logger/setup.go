@@ -1,3 +1,4 @@
+// Package logger configures the zerolog global logger.
 package logger
 
 import (
@@ -8,6 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Setup applies the log level and output format to the global logger.
 func Setup(cfg config.LogConfig) {
 	switch cfg.Level {
 	case "debug":

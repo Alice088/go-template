@@ -1,8 +1,32 @@
+// Package main Go Template API
+//
+// @title          Go Template API
+// @version        0.1.0
+// @description    A Go API project template
+// @termsOfService https://github.com
+//
+// @contact.name   Developer
+// @contact.email  dev@example.com
+//
+// @license.name MIT
+// @license.url  https://opensource.org/licenses/MIT
+//
+// @host      localhost:8080
+// @BasePath  /v1
+//
+// @securityDefinitions.apikey BearerAuth
+// @in                         header
+// @name                       Authorization
+// @description               Type "Bearer " followed by a JWT token
 package main
 
 import (
 	"context"
 	"fmt"
+	"go-template/internal/config"
+	"go-template/internal/database"
+	"go-template/internal/handler"
+	"go-template/pkg/logger"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,11 +36,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 
-	"go-template/internal/config"
-	"go-template/internal/database"
-	"go-template/internal/handler"
 	v1 "go-template/internal/router/v1"
-	"go-template/pkg/logger"
 )
 
 const version = "0.1.0"
@@ -70,7 +90,7 @@ func main() {
 	defer shutdownCancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatal().Err(err).Msg("server forced shutdown")
+		log.Error().Err(err).Msg("server forced shutdown")
 	}
 
 	log.Info().Msg("server stopped gracefully")

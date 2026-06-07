@@ -2,19 +2,21 @@ package middleware
 
 import (
 	"context"
+	"go-template/internal/auth"
 	"net/http"
 	"strings"
-
-	"go-template/internal/auth"
 )
 
 type contextKey string
 
 const (
+	// UserIDKey is the context key for the authenticated user's ID.
 	UserIDKey contextKey = "user_id"
-	RoleKey   contextKey = "role"
+	// RoleKey is the context key for the authenticated user's role.
+	RoleKey contextKey = "role"
 )
 
+// JWTAuth returns middleware that validates a Bearer JWT token.
 func JWTAuth(jwtManager *auth.JWTManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +45,7 @@ func JWTAuth(jwtManager *auth.JWTManager) func(http.Handler) http.Handler {
 	}
 }
 
+// GetUserID extracts the authenticated user ID from context.
 func GetUserID(ctx context.Context) int64 {
 	if id, ok := ctx.Value(UserIDKey).(int64); ok {
 		return id
@@ -50,6 +53,7 @@ func GetUserID(ctx context.Context) int64 {
 	return 0
 }
 
+// GetRole extracts the authenticated user role from context.
 func GetRole(ctx context.Context) string {
 	if role, ok := ctx.Value(RoleKey).(string); ok {
 		return role

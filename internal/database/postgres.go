@@ -9,10 +9,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// Postgres wraps a pgx connection pool.
 type Postgres struct {
 	Pool *pgxpool.Pool
 }
 
+// NewPostgres creates a new connection pool and verifies connectivity.
 func NewPostgres(ctx context.Context, dsn string) (*Postgres, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -38,6 +40,7 @@ func NewPostgres(ctx context.Context, dsn string) (*Postgres, error) {
 	return &Postgres{Pool: pool}, nil
 }
 
+// Close gracefully shuts down the connection pool.
 func (p *Postgres) Close() {
 	if p.Pool != nil {
 		p.Pool.Close()
