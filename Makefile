@@ -1,6 +1,9 @@
 run:
 	go run ./cmd/api
 
+tidy:
+	go fmt ./... && echo "OK FMT" ; go vet ./... && echo "OK VET"
+
 test:
 	go test ./...
 
