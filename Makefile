@@ -2,7 +2,7 @@ run:
 	go run ./cmd/api
 
 tidy:
-	go fmt ./... && echo "OK FMT" ; go vet ./... && echo "OK VET"
+	go fmt ./... && echo "OK FMT" ; go vet ./... && echo "OK VET" ; golangci-lint fmt && echo "OK LINT-FMT" 
 
 test:
 	go test ./...

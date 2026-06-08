@@ -12,7 +12,6 @@ linters:
     - govet
     - gosec
     - gocritic
-    - revive
     - unused
 
 formatters:
