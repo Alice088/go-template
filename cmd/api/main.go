@@ -3,7 +3,7 @@
 // @title          Go Template API
 // @version        0.1.0
 // @description    A Go API project template
-// @termsOfService https://github.com
+// @termsOfService https://github.com/Alice088/go-template
 //
 // @contact.name   Developer
 // @contact.email  dev@example.com
@@ -22,13 +22,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go-template/internal/config"
 	"go-template/internal/database"
 	"go-template/internal/handler"
-	"go-template/pkg/logger"
+	"go-template/internal/logger"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -39,59 +39,83 @@ import (
 	v1 "go-template/internal/router/v1"
 )
 
-const version = "0.1.0"
+// version is the application version. It is overridden at build time with
+// -ldflags "-X main.version=...".
+var version = "dev"
+
+// databaseConnectTimeout bounds the initial database handshake.
+const databaseConnectTimeout = 5 * time.Second
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal().Err(err).Msg("application failed")
+	}
+}
+
+// run wires the application together and blocks until it is shut down.
+// Errors are returned instead of exiting, so deferred cleanups always run.
+func run() error {
 	if err := godotenv.Load(); err != nil {
-		log.Warn().Err(err).Msg("no .env file found, using defaults")
+		log.Warn().Err(err).Msg("no .env file found, using environment")
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load config")
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	logger.Setup(cfg.Log)
+	log.Info().Str("version", version).Msg("starting application")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	db, err := database.NewPostgres(ctx, cfg.Database.DSN())
-	cancel()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	connectCtx, cancelConnect := context.WithTimeout(ctx, databaseConnectTimeout)
+	db, err := database.NewPostgres(connectCtx, cfg.Database)
+	cancelConnect()
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to connect to database")
+		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer db.Close()
 
-	healthHandler := handler.NewHealthHandler(version)
+	router := v1.NewRouter(handler.NewHealthHandler(version, db), cfg)
 
-	router := v1.NewRouter(healthHandler)
-
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      router,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
+		Addr:              cfg.Server.Addr(),
+		Handler:           router,
+		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
+		ReadTimeout:       cfg.Server.ReadTimeout,
+		WriteTimeout:      cfg.Server.WriteTimeout,
+		IdleTimeout:       cfg.Server.IdleTimeout,
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
+	serverErr := make(chan error, 1)
 	go func() {
-		log.Info().Str("addr", addr).Msg("starting server")
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("server error")
+		log.Info().Str("addr", srv.Addr).Msg("starting server")
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+			return
 		}
+		serverErr <- nil
 	}()
 
-	<-quit
-	log.Info().Msg("shutting down server...")
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			return fmt.Errorf("serve http: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		log.Info().Msg("shutdown signal received")
+	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	defer cancelShutdown()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Error().Err(err).Msg("server forced shutdown")
+		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 
 	log.Info().Msg("server stopped gracefully")
+	return nil
 }

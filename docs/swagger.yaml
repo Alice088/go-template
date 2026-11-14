@@ -1,5 +1,24 @@
 basePath: /v1
 definitions:
+  dto.ErrorBody:
+    properties:
+      code:
+        description: Code is a stable machine-readable code, e.g. "validation_failed".
+        type: string
+      details:
+        additionalProperties:
+          type: string
+        description: Details carries field-level problems, e.g. validation failures.
+        type: object
+      message:
+        description: Message is a human-readable, client-safe message.
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/dto.ErrorBody'
+    type: object
   dto.HealthResponse:
     properties:
       status:
@@ -7,6 +26,17 @@ definitions:
       timestamp:
         type: string
       version:
+        type: string
+    type: object
+  dto.ReadyResponse:
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+      timestamp:
         type: string
     type: object
 host: localhost:8080
@@ -18,13 +48,13 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  termsOfService: https://github.com
+  termsOfService: https://github.com/Alice088/go-template
   title: Go Template API
   version: 0.1.0
 paths:
   /health:
     get:
-      description: Returns the service health status
+      description: Reports that the process is up. It never touches dependencies.
       produces:
       - application/json
       responses:
@@ -32,7 +62,24 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/dto.HealthResponse'
-      summary: Health check
+      summary: Liveness probe
+      tags:
+      - system
+  /ready:
+    get:
+      description: Reports whether the service can serve traffic, including its dependencies.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.ReadyResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Readiness probe
       tags:
       - system
 securityDefinitions:

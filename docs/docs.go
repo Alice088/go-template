@@ -9,7 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "https://github.com",
+        "termsOfService": "https://github.com/Alice088/go-template",
         "contact": {
             "name": "Developer",
             "email": "dev@example.com"
@@ -25,14 +25,14 @@ const docTemplate = `{
     "paths": {
         "/health": {
             "get": {
-                "description": "Returns the service health status",
+                "description": "Reports that the process is up. It never touches dependencies.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "system"
                 ],
-                "summary": "Health check",
+                "summary": "Liveness probe",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -42,9 +42,63 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/ready": {
+            "get": {
+                "description": "Reports whether the service can serve traffic, including its dependencies.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Readiness probe",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ReadyResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "dto.ErrorBody": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is a stable machine-readable code, e.g. \"validation_failed\".",
+                    "type": "string"
+                },
+                "details": {
+                    "description": "Details carries field-level problems, e.g. validation failures.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "message": {
+                    "description": "Message is a human-readable, client-safe message.",
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/dto.ErrorBody"
+                }
+            }
+        },
         "dto.HealthResponse": {
             "type": "object",
             "properties": {
@@ -55,6 +109,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ReadyResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
                     "type": "string"
                 }
             }
